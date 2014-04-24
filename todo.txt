@@ -1,0 +1,18 @@
+WYS£AÆ PITULEJOWI ODWZOROWANIE OSOBA -> SERVICE
+
+Do Micha³a: na koniec bêdzie rozmowa, kto co zrobi³, na podstawie tego ocena - im wiêksze zaanga¿owanie, tym lepiej,
+
+JA muszê koordynowaæ powstawanie dllki Contracts - ma to byæ jeden plik Program.cs wewn¹trz projektu typu "Library Class", skompilowany jako DLL i do³¹czany do innych projektów po to, by zna³y postaæ interfejsów i typów danych.
+
+ka¿dy z nas robi swój projekt
+mamy wystawiæ us³ugê, któr¹ zdefiniowaliœmy (zarejestrowaæ j¹ w IServiceRepository)
+mamy byæ klientem na IServiceRepository (znany adres, pobierany z appConfig),
+mamy byæ klientem na potrzebne nam service'y
+zaimplementowaæ funkcjonalnoœæ:
+- logowanie zdarzeñ, np. serwis wsta³, serwis doda³ lokatê, serwis zakoñczy³ dzia³anie - log4net - pozwala zapisywaæ log (my mo¿emy to zrobiæ do pliku, choæ mo¿e lepiej do bazy danych)
+- storage - jakaœ baza danych, ale z opcj¹ mocka - aby da³o siê ³atwo testowaæ projekt zapewniaj¹c np. klasê, która zachowuje siê jak baza danych.
+- ka¿dy serwis musi pingowaæ co 5 sekund IServiceRepository, inaczej IServiceRepository uznaje, ¿e jest niedostpêny
+- przy wyjœciu siê odrejestrowuj (elegancko!),
+- wykorzystaæ appConfig (standardowy, prosty plik w C#, zawieraj¹cy pary klucz-wartoœæ) - przynajmniej do zapisania tam ip serwisu IServiceRepository,
+- GUID to pojêcie .NETowe,
+- ORM zamiast SQL (nHibernate, Entity Framework),
