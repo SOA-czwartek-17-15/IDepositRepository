@@ -1,4 +1,6 @@
 #IDepositRepository
-## Krótki opis projektu
+## KrÃ³tki opis projektu
 
-IDepositRepository to interfejs, dziêki któremu mo¿emy stworzyæ i zamkn¹æ lokatê. Lokatê mo¿na otworzyæ w ramach konkretnego konta klienta lub konkretnego rachunku. W pierwszym przypadku nale¿y dostarczyæ
+IDepositRepository to interfejs, dziÄ™ki ktÃ³remu moÅ¼emy stworzyÄ‡ i zamknÄ…Ä‡ lokatÄ™. LokatÄ™ moÅ¼na otworzyÄ‡ w ramach danego konta klienta lub danego rachunku. W pierwszym przypadku naleÅ¼y dostarczyÄ‡ numer klienta, w drugim numer rachunku.
+
+W obydwu przypadkach musimy dodatkowo wyspecifykowaÄ‡ kwotÄ™, na ktÃ³rÄ… ma byÄ‡ otwarta lokata, oraz jej typ.
