@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.Serialization;
 
-namespace DepositService
+namespace DepositService.Domain
 {
     [DataContract]
     public class Deposit

@@ -2,13 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.ServiceModel;
+
+using DepositService.Domain;
 
 namespace DepositService
 {
+    [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single)]
     public class DepositRepository : IDepositRepository
     {
         public Guid CreateDeposit(Guid clientId, Deposit deposit)
         {
+
             return new Guid();
         }
 

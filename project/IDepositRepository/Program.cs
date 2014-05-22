@@ -8,24 +8,23 @@ using System.Configuration;
 using System.Timers;
 
 using Contracts;
-//using log4net;
-//using log4net.Config;
+using log4net;
 
 namespace DepositService
 {
     public class Program
     {
+        private static readonly ILog log = LogManager.GetLogger(typeof(Program));
         private static IServiceRepository svcRepository;
-        private const string selfAddress = "net.tcp://127.0.0.1:11111/IDepositRepository";
-        //private static readonly ILog log = LogManager.GetLogger(typeof(Program));
-
+        private const string selfAddress = "net.tcp://127.0.0.1:22222/IDepositRepository";
+        
         static void Main(string[] args)
         {
             // load log4net configuration
 
-            //log4net.Config.XmlConfigurator.Configure();
-            
+            log4net.Config.XmlConfigurator.Configure();
             //log.Info("this is the first log message");
+
             // create service host
 
             var sh = new ServiceHost(typeof(DepositRepository), new Uri[] { new Uri(selfAddress) });
@@ -65,6 +64,13 @@ namespace DepositService
 
                 Console.ReadLine();
 
+                // unregister service before closing
+
+                svcRepository.Unregister("IDepositRepository");
+                
+                // stope the timer and close our service
+
+                aliveTimer.Stop();
                 sh.Close();
             }
             catch (CommunicationException commError)
