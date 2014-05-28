@@ -16,49 +16,77 @@ namespace DepositService
     {
         private static readonly ILog log = LogManager.GetLogger(typeof(Program));
         private static IServiceRepository svcRepository;
+        private static string svcRepositoryAddr;
         private const string selfAddress = "net.tcp://127.0.0.1:22222/IDepositRepository";
+        private const string selfAddressForSvcRepository = "net.tcp://0.0.0.0:22222/IDepositRepository";
+        private static Timer connectionTimer = null;
+        private static Timer aliveTimer = null;
         
         static void Main(string[] args)
         {
             // load log4net configuration
 
             log4net.Config.XmlConfigurator.Configure();
-            //log.Info("this is the first log message");
+
+            log.Info("Starting to log.");
+
+            // get ServiceRepository address from App.config
+
+            svcRepositoryAddr = System.Configuration.ConfigurationManager.AppSettings["svcRepositoryAddress"];
+
+            // create the timer which will remind service repository that we're alive every 4 secs
+
+            aliveTimer = new Timer();
+            aliveTimer.Interval = (1000) * (4);
+            aliveTimer.Elapsed += new ElapsedEventHandler(KeepAlive);
 
             // create service host
 
-            var sh = new ServiceHost(typeof(DepositRepository), new Uri[] { new Uri(selfAddress) });
+            var dr = new DepositRepository(svcRepositoryAddr, new NHibernateAccess());
+            var sh = new ServiceHost(dr, new Uri[] { new Uri(selfAddress) });
 
             try
             {
                 // setup service endpoint
 
-                sh.AddServiceEndpoint(typeof(IDepositRepository), new NetTcpBinding(), selfAddress);
+                sh.AddServiceEndpoint(typeof(IDepositRepository), new NetTcpBinding(SecurityMode.None), selfAddress);
 
                 // start service and wait for clients
 
                 sh.Open();
 
-                // get ServiceRepository address from App.config
+                log.Info("Service is up.");
+             
+                try
+                {
+                    log.Info("Trying to connect to IServiceRepository");
 
-                string svcRepositoryAddr = System.Configuration.ConfigurationManager.AppSettings["svcRepositoryAddress"];
+                    // create channel to service repository
 
-                // create channel to service repository
-                
-                var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(), svcRepositoryAddr);
-                svcRepository = cf.CreateChannel();
-                
-                // register our service
-                
-                svcRepository.RegisterService("IDepositRepository", selfAddress);
-                
-                // create the timer which whill remind service repository that we're alive every 5 secs
-                
-                Timer aliveTimer = new Timer();
-                aliveTimer.Interval = (1000) * (5);
-                aliveTimer.Elapsed += new ElapsedEventHandler(KeepAlive);
-                aliveTimer.Enabled = true;
-                aliveTimer.Start();
+                    var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
+                    svcRepository = cf.CreateChannel();
+
+                    // register our service
+
+                    svcRepository.RegisterService("IDepositRepository", selfAddressForSvcRepository);
+
+                    log.Info("Service registered.");
+
+                    // start notifying about being alive
+                    
+                    aliveTimer.Start();
+                }
+                catch (CommunicationException commError)
+                { 
+                    // create the timer which will try to connect to service repository every 4 secs
+
+                    connectionTimer = new Timer();
+                    connectionTimer.Interval = (1000) * (4);
+                    connectionTimer.Elapsed += new ElapsedEventHandler(TryToConnect);
+                    connectionTimer.Start();
+
+                    log.Info("Error while connecting to ServiceRepository. Message: " + commError.Message);
+                }
 
                 // press ENTER to finish
 
@@ -67,23 +95,77 @@ namespace DepositService
                 // unregister service before closing
 
                 svcRepository.Unregister("IDepositRepository");
-                
-                // stope the timer and close our service
+
+                log.Info("Service unregistered.");
+
+                // stop the timer and close our service
 
                 aliveTimer.Stop();
                 sh.Close();
+
+                log.Info("Service finished.");
             }
             catch (CommunicationException commError)
             {
-                Console.WriteLine("Communication error: " + commError.Message);
+                log.Info("Communication error: " + commError.Message);
                 sh.Abort();
-                Console.Read();
+                Console.ReadLine();
             }
         }
 
+        private static void TryToConnect(object sender, EventArgs e)
+        {
+            log.Info("Trying to connect to IServiceRepository");
+
+            connectionTimer.Stop();
+
+            try
+            {
+                // create channel to service repository
+
+                var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
+                svcRepository = cf.CreateChannel();
+
+                // register our service
+
+                svcRepository.RegisterService("IDepositRepository", selfAddressForSvcRepository);
+
+                log.Info("Service registered.");
+
+                connectionTimer.Stop();
+
+                // start notifying about being alive
+
+                aliveTimer.Start();
+            }
+            catch (CommunicationException commError)
+            {
+                log.Info("Error while connecting to ServiceRepository. Message: " + commError.Message);
+                connectionTimer.Start();
+            }
+        }
+        
         private static void KeepAlive(object sender, EventArgs e)
         {
-            svcRepository.Alive("IDepositRepository");
+            log.Info("Sending alive");
+
+            // creating new channel each time
+            
+            try
+            {
+                var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
+                var channel = cf.CreateChannel();
+                channel.Alive("IDepositRepository");
+                cf.Abort();
+
+                log.Info("Alive sent");
+            }
+            catch (CommunicationException commError)
+            {
+                log.Info("Error while sending alive. Message: " + commError.Message);
+                aliveTimer.Stop();
+                connectionTimer.Start();
+            }
         }
     }
 }

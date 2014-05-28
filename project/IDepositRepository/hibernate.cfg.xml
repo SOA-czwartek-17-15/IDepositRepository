@@ -10,10 +10,14 @@
     NHibernate.Driver.MySqlDataDriver
   </property> 
   <property name="connection.connection_string">
-    Server=mysql.agh.edu.pl;Database=urbanek1;User ID=urbanek1;Password=BzQSJsRx;
+    Server=localhost;Database=depositdb;User ID=dbuser;Password=password123;
   </property> 
   <property name="dialect">
     NHibernate.Dialect.MySQLDialect
   </property>
+  <property name="show_sql">
+    true
+  </property>
+  <mapping assembly="Contracts"/>
  </session-factory>
 </hibernate-configuration>

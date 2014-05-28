@@ -14,23 +14,27 @@ namespace Mockups
         {
             // create mockup services
 
-            var sr = new ServiceHost(typeof(ServiceRepository), new Uri[] {new Uri("net.tcp://127.0.0.1:11111/ServiceRepository")});
-            var cr = new ServiceHost(typeof(ClientRepository), new Uri[] {new Uri("net.tcp://127.0.0.1:11111/ClientRepository")});
-            var ar = new ServiceHost(typeof(AccountRepository), new Uri[] {new Uri("net.tcp://127.0.0.1:11111/AccountRepository")});
+            var sr = new ServiceHost(typeof(ServiceRepository), new Uri[] {new Uri("net.tcp://127.0.0.1:11111/IServiceRepository")});
+            var cr = new ServiceHost(typeof(ClientRepository), new Uri[] {new Uri("net.tcp://127.0.0.1:11111/IClientRepository")});
+            var ar = new ServiceHost(typeof(AccountRepository), new Uri[] {new Uri("net.tcp://127.0.0.1:11111/IAccountRepository")});
 
             try
             {
                 // setup service endpoints
 
-                sr.AddServiceEndpoint(typeof(IServiceRepository), new NetTcpBinding(), "net.tcp://127.0.0.1:11111/ServiceRepository");
-                cr.AddServiceEndpoint(typeof(IClientRepository), new NetTcpBinding(), "net.tcp://127.0.0.1:11111/ClientRepository");
-                ar.AddServiceEndpoint(typeof(IAccountRepository), new NetTcpBinding(), "net.tcp://127.0.0.1:11111/AccountRepository");
+                sr.AddServiceEndpoint(typeof(IServiceRepository), new NetTcpBinding(SecurityMode.None), "net.tcp://127.0.0.1:11111/IServiceRepository");
+                cr.AddServiceEndpoint(typeof(IClientRepository), new NetTcpBinding(SecurityMode.None), "net.tcp://127.0.0.1:11111/IClientRepository");
+                ar.AddServiceEndpoint(typeof(IAccountRepository), new NetTcpBinding(SecurityMode.None), "net.tcp://127.0.0.1:11111/IAccountRepository");
 
                 // start service and wait for clients
 
                 sr.Open();
                 cr.Open();
                 ar.Open();
+
+                /*var cf = new ChannelFactory<IDepositRepository>(new NetTcpBinding(SecurityMode.None), "net.tcp://127.0.0.1:22222/IDepositRepository");
+                var channel = cf.CreateChannel();
+                channel.CreateDeposit();*/
 
                 Console.ReadLine();
             }

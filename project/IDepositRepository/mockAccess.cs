@@ -6,19 +6,19 @@ using Contracts;
 
 namespace DepositService
 {
-    public class mockAccess : IDatabaseAccess
+    public class MockAccess : IDatabaseAccess
     {
-        public void storeDeposit(Deposit deposit)
+        public void StoreDeposit(Deposit deposit)
         {
             return;
         }
 
-        public void deleteDeposit(Guid depositId)
+        public void DeleteDeposit(Guid depositId)
         {
             return;
         }
 
-        public Deposit getDeposit(Guid depositId)
+        public Deposit GetDeposit(Guid depositId)
         {
             var dep = new Deposit();
             dep.Id = Guid.NewGuid();

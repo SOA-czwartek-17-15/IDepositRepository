@@ -13,26 +13,34 @@ namespace Mockups
     {
         public void RegisterService(String Name, String Address)
         {
+            Console.WriteLine("Registered service " + Name + " at " + Address);
+
             return;
         }
 
         public string GetServiceLocation(String Name)
         {
+            Console.WriteLine("Someone asks about location of " + Name);
+
             if(Name.Equals("IClientRepository"))
-                return "net.tcp://127.0.0.1:11111/ClientRepository";
+                return "net.tcp://127.0.0.1:11111/IClientRepository";
             else if (Name.Equals("IAccountRepository"))
-                return "net.tcp://127.0.0.1:11111/AccountRepository";
+                return "net.tcp://127.0.0.1:11111/IAccountRepository";
             else
                 return "";
         }
 
         public void Unregister(String Name)
         {
-           return;
+            Console.WriteLine(Name + " unregistered.");
+
+            return;
         }
 
         public void Alive(String Name)
         {
+            Console.WriteLine("Received alive from " + Name);
+
             return;
         }
     }

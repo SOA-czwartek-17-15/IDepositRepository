@@ -1,7 +1,7 @@
 ﻿using System.ServiceModel;
 using System;
 
-using DepositService.Domain;
+using Contracts;
 
 namespace DepositService
 {
