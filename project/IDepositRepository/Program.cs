@@ -15,10 +15,9 @@ namespace DepositService
     public class Program
     {
         private static readonly ILog log = LogManager.GetLogger(typeof(Program));
-        private static IServiceRepository svcRepository;
         private static string svcRepositoryAddr;
-        private const string selfAddress = "net.tcp://127.0.0.1:22222/IDepositRepository";
-        private const string selfAddressForSvcRepository = "net.tcp://0.0.0.0:22222/IDepositRepository";
+        private const string selfAddress = "net.tcp://0.0.0.0:50001/IDepositRepository";
+        private const string selfAddressForSvcRepository = "net.tcp://192.168.0.95:50001/IDepositRepository";
         private static Timer connectionTimer = null;
         private static Timer aliveTimer = null;
         
@@ -64,11 +63,12 @@ namespace DepositService
                     // create channel to service repository
 
                     var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
-                    svcRepository = cf.CreateChannel();
+                    var svcRepository = cf.CreateChannel();
 
                     // register our service
 
-                    svcRepository.RegisterService("IDepositRepository", selfAddressForSvcRepository);
+                    svcRepository.RegisterService("IDepositRepository", selfAddressForSvcRepository, "NetTcpBinding");
+                    cf.Abort();
 
                     log.Info("Service registered.");
 
@@ -88,19 +88,33 @@ namespace DepositService
                     log.Info("Error while connecting to ServiceRepository. Message: " + commError.Message);
                 }
 
+                /*Deposit dep = new Deposit();
+                dep.Type = "standard";
+                dep.Interest = 3.0;
+                dep.CapitalizationPeriod = 30;
+                dep.Money = 2000.0;
+                dep.OpeningDate = "05-07-2014";
+                dep.Duration = "4 months";
+
+                Guid newDepositID = dr.CreateDeposit(new Guid("566d9b1e-d322-47f2-a8ad-26553af82385"), dep);*/
+
                 // press ENTER to finish
 
                 Console.ReadLine();
 
                 // unregister service before closing
 
-                svcRepository.Unregister("IDepositRepository");
+                var cf_unreg = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
+                var svcRepository_unreg = cf_unreg.CreateChannel();
+                svcRepository_unreg.Unregister("IDepositRepository");
+                cf_unreg.Abort();
 
                 log.Info("Service unregistered.");
 
                 // stop the timer and close our service
 
                 aliveTimer.Stop();
+                connectionTimer.Stop();
                 sh.Close();
 
                 log.Info("Service finished.");
@@ -124,15 +138,13 @@ namespace DepositService
                 // create channel to service repository
 
                 var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
-                svcRepository = cf.CreateChannel();
+                var svcRepository = cf.CreateChannel();
 
                 // register our service
 
                 svcRepository.RegisterService("IDepositRepository", selfAddressForSvcRepository);
 
                 log.Info("Service registered.");
-
-                connectionTimer.Stop();
 
                 // start notifying about being alive
 

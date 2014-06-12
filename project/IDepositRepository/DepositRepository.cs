@@ -32,8 +32,23 @@ namespace DepositService
 
             var srCf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), serviceRepositoryAddress);
             var serviceRepository = srCf.CreateChannel();
-            var addr = serviceRepository.GetServiceLocation("IClientRepository");
+            var addr = serviceRepository.GetServiceLocation("IClientService");
+
+            // wersja uwzględniająca binding
+            /*Tuple<string,string> res = serviceRepository.GetServiceLocation("IClientRepository");
+            if(res.Item2 == "NetTcpBinding")
+            {
+                var cf = new ChannelFactory<IAccountRepository>(new NetTcpBinding(SecurityMode.None), res.Item1);
+            }
+            else if (res.Item2 == "BasicHttpBinding")
+            {
+                var cf = new ChannelFactory<IAccountRepository>(new BasicHttpBinding(SecurityMode.None), res.Item1);
+            }*/
+
             srCf.Abort();
+
+            if (addr == null)
+                return Guid.Empty;
 
             var cf = new ChannelFactory<IClientRepository>(new NetTcpBinding(SecurityMode.None), addr);
             var channel = cf.CreateChannel();
@@ -63,7 +78,22 @@ namespace DepositService
             var srCf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), serviceRepositoryAddress);
             var serviceRepository = srCf.CreateChannel();
             var addr = serviceRepository.GetServiceLocation("IAccountRepository");
+
+            // wersja uwzględniająca binding
+            /*Tuple<string,string> res = serviceRepository.GetServiceLocation("IAccountRepository");
+            if(res.Item2 == "NetTcpBinding")
+            {
+                var cf = new ChannelFactory<IAccountRepository>(new NetTcpBinding(SecurityMode.None), res.Item1);
+            }
+            else if (res.Item2 == "BasicHttpBinding")
+            {
+                var cf = new ChannelFactory<IAccountRepository>(new BasicHttpBinding(SecurityMode.None), res.Item1);
+            }*/
+
             srCf.Abort();
+
+            if (addr == null)
+                return Guid.Empty;
 
             var cf = new ChannelFactory<IAccountRepository>(new NetTcpBinding(SecurityMode.None), addr);
             var channel = cf.CreateChannel();
@@ -93,7 +123,7 @@ namespace DepositService
             {
                 dep = databaseAccess.GetDeposit(depositId);
             }
-            catch (System.Exception ex)
+            catch (NHibernate.ObjectNotFoundException ex)
             {
                 log.Info("Tried to get deposit " + depositId + " which does not exist.");
             }
@@ -109,7 +139,7 @@ namespace DepositService
             {
                 databaseAccess.DeleteDeposit(depositId);
             }
-            catch (System.Exception ex)
+            catch (NHibernate.ObjectNotFoundException ex)
             {
                 log.Info("Tried to remove deposit " + depositId + " which does not exist.");
             }
