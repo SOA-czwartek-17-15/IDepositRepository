@@ -1,28 +1,28 @@
-﻿using System;
+﻿using Contracts;
+using log4net;
+using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
-using System.Text;
 using System.ServiceModel;
 using System.ServiceModel.Description;
-using System.Configuration;
+using System.Text;
 using System.Timers;
+using ZMQ;
 
-using Contracts;
-using log4net;
+using Newtonsoft.Json;
 
 namespace DepositService
 {
     public class Program
     {
         private static readonly ILog log = LogManager.GetLogger(typeof(Program));
-        private static string svcRepositoryAddr;
-        private const string selfAddress = "net.tcp://0.0.0.0:50001/IDepositRepository";
-        private const string selfAddressForSvcRepository = "net.tcp://192.168.0.95:50001/IDepositRepository";
+        private static String svcRepositoryAddr;
         private static Timer connectionTimer = null;
         private static Timer aliveTimer = null;
         
         static void Main(string[] args)
-        {
+        { 
             // load log4net configuration
 
             log4net.Config.XmlConfigurator.Configure();
@@ -31,62 +31,74 @@ namespace DepositService
 
             // get ServiceRepository address from App.config
 
-            svcRepositoryAddr = System.Configuration.ConfigurationManager.AppSettings["svcRepositoryAddress"];
+            svcRepositoryAddr = ConfigurationManager.AppSettings["svcRepositoryAddress"];
 
             // create the timer which will remind service repository that we're alive every 4 secs
 
             aliveTimer = new Timer();
-            aliveTimer.Interval = (1000) * (4);
+            aliveTimer.Interval = (1000) * (2);
             aliveTimer.Elapsed += new ElapsedEventHandler(KeepAlive);
 
+            // create the timer which will try to connect to service repository every 4 secs if something goes wrong
+
+            connectionTimer = new Timer();
+            connectionTimer.Interval = (1000) * (4);
+            connectionTimer.Elapsed += new ElapsedEventHandler(TryToConnect);
+                    
             // create service host
 
-            var dr = new DepositRepository(svcRepositoryAddr, new NHibernateAccess());
-            var sh = new ServiceHost(dr, new Uri[] { new Uri(selfAddress) });
+            var dr = new DepositRepository(svcRepositoryAddr, new MockAccess());
+            var sh = new ServiceHost(dr, new Uri[] { new Uri(ConfigurationManager.AppSettings["selfAddress"]) });
 
             try
             {
                 // setup service endpoint
 
-                sh.AddServiceEndpoint(typeof(IDepositRepository), new NetTcpBinding(SecurityMode.None), selfAddress);
+                sh.AddServiceEndpoint(typeof(IDepositRepository), new NetTcpBinding(SecurityMode.None), ConfigurationManager.AppSettings["selfAddress"]);
 
-                // start service and wait for clients
+                // start web service and wait for clients
 
                 sh.Open();
 
                 log.Info("Service is up.");
-             
-                try
-                {
-                    log.Info("Trying to connect to IServiceRepository");
 
-                    // create channel to service repository
+                // setup message entry point
 
-                    var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
-                    var svcRepository = cf.CreateChannel();
-
-                    // register our service
-
-                    svcRepository.RegisterService("IDepositRepository", selfAddressForSvcRepository, "NetTcpBinding");
-                    cf.Abort();
-
-                    log.Info("Service registered.");
-
-                    // start notifying about being alive
+                var drZMQ = new DepositRepositoryZMQ(dr, ConfigurationManager.AppSettings["selfAddressZMQ"]);
+                             
+                log.Info("Sending a message to IServiceRepository");
                     
-                    aliveTimer.Start();
-                }
-                catch (CommunicationException commError)
-                { 
-                    // create the timer which will try to connect to service repository every 4 secs
+                // register service by message
 
-                    connectionTimer = new Timer();
-                    connectionTimer.Interval = (1000) * (4);
-                    connectionTimer.Elapsed += new ElapsedEventHandler(TryToConnect);
-                    connectionTimer.Start();
+                using (var context = new Context())
+                {
+                    using (var client = context.Socket(SocketType.REQ))
+                    {
+                        client.Connect(ConfigurationManager.AppSettings["svcRepositoryAddressZMQ"]);
 
-                    log.Info("Error while connecting to ServiceRepository. Message: " + commError.Message);
+                        var jsonMessage = new JSONMessage();
+                        jsonMessage.Function = "RegisterService";
+                        jsonMessage.Parameters = new String[] { "IDepositRepository", ConfigurationManager.AppSettings["selfAddressForSvcRepositoryZMQ"], "NetTcpBinding" };
+                        jsonMessage.Service = "IDepositRepository";
+
+                        var request = JsonConvert.SerializeObject(jsonMessage);
+
+                        var status = client.Send(request, Encoding.Unicode);
+
+                        string reply = client.Recv(Encoding.Unicode, 4000);
+
+                        if (reply == null)
+                        {
+                            connectionTimer.Start();
+                        }
+                    }
                 }
+
+                log.Info("Service registered.");
+
+                // start notifying about being alive
+                    
+                aliveTimer.Start();
 
                 /*Deposit dep = new Deposit();
                 dep.Type = "standard";
@@ -133,27 +145,32 @@ namespace DepositService
 
             connectionTimer.Stop();
 
-            try
+            using (var context = new Context())
             {
-                // create channel to service repository
+                using (var client = context.Socket(SocketType.REQ))
+                {
+                    client.Connect(ConfigurationManager.AppSettings["svcRepositoryAddressZMQ"]);
 
-                var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
-                var svcRepository = cf.CreateChannel();
+                    var jsonMessage = new JSONMessage();
+                    jsonMessage.Function = "RegisterService";
+                    jsonMessage.Parameters = new String[] { "IDepositRepository", ConfigurationManager.AppSettings["selfAddressForSvcRepositoryZMQ"], "NetTcpBinding" };
+                    jsonMessage.Service = "IDepositRepository";
 
-                // register our service
+                    var request = JsonConvert.SerializeObject(jsonMessage);
 
-                svcRepository.RegisterService("IDepositRepository", selfAddressForSvcRepository);
+                    var status = client.Send(request, Encoding.Unicode);
 
-                log.Info("Service registered.");
+                    string reply = client.Recv(Encoding.Unicode, 4000);
 
-                // start notifying about being alive
-
-                aliveTimer.Start();
-            }
-            catch (CommunicationException commError)
-            {
-                log.Info("Error while connecting to ServiceRepository. Message: " + commError.Message);
-                connectionTimer.Start();
+                    if (reply == null)
+                    {
+                        connectionTimer.Start();
+                    }
+                    else
+                    {
+                        aliveTimer.Start();
+                    }
+                }
             }
         }
         
@@ -163,21 +180,28 @@ namespace DepositService
 
             // creating new channel each time
             
-            try
-            {
-                var cf = new ChannelFactory<IServiceRepository>(new NetTcpBinding(SecurityMode.None), svcRepositoryAddr);
-                var channel = cf.CreateChannel();
-                channel.Alive("IDepositRepository");
-                cf.Abort();
+            using (var context = new Context())
+                using (var client = context.Socket(SocketType.REQ))
+                {
+                    client.Connect(ConfigurationManager.AppSettings["svcRepositoryAddressZMQ"]);
 
-                log.Info("Alive sent");
-            }
-            catch (CommunicationException commError)
-            {
-                log.Info("Error while sending alive. Message: " + commError.Message);
-                aliveTimer.Stop();
-                connectionTimer.Start();
-            }
+                    var jsonMessage = new JSONMessage();
+                    jsonMessage.Function = "Alive";
+                    jsonMessage.Parameters = new String[] { "IDepositRepository" };
+                    jsonMessage.Service = "IDepositRepository";
+
+                    var request = JsonConvert.SerializeObject(jsonMessage);
+
+                    client.Send(request, Encoding.Unicode);
+
+                    string reply = client.Recv(Encoding.Unicode, 4000);
+
+                    if(reply == null)
+                    {
+                        aliveTimer.Stop();
+                        connectionTimer.Start();
+                    }
+                }
         }
     }
 }
